@@ -34,3 +34,21 @@ cli-chatbot/
 cp .env.example .env   # Windows: copy .env.example .env
 # 编辑 .env，填入 CHATBOT_API_KEY
 ```
+
+## 快速开始
+
+```bash
+py -m pip install -r requirements.txt
+copy .env.example .env    # 填入 CHATBOT_API_KEY
+py chat.py
+```
+
+对话示例：
+
+```
+命令行对话机器人（模型 gpt-4o-mini），输入 exit 退出。
+你：你好，帮我写一个 Python 冒泡排序
+AI：...
+你：exit
+再见。
+```
