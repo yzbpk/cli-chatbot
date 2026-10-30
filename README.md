@@ -52,3 +52,21 @@ AI：...
 你：exit
 再见。
 ```
+
+回复边生成边打印（`stream=True`），结束后只补一个换行，不会出现空行堆积。
+
+## 单元测试
+
+测试完全离线：不联网、不需要真实 API Key，通过 `monkeypatch.setenv` 造环境、
+`get_settings()`（带 `lru_cache`）取配置并在用例间 `cache_clear()`。
+
+```bash
+py -m pip install -r requirements-dev.txt
+py -m pytest -q
+py -m ruff check .
+```
+
+| 文件 | 覆盖内容 |
+| --- | --- |
+| `tests/test_config.py` | 默认值解析；`CHATBOT_TEMPERATURE=5` 抛 `ValidationError`；`SecretStr` 打印不出现明文 |
+| `tests/test_llm.py` | 假客户端断言传给模型的 `model`、`temperature`、`messages` 结构与 `stream=True`；增量文本拼接 |

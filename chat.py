@@ -1,4 +1,4 @@
-"""命令行对话机器人入口：支持连续多轮对话。"""
+"""命令行对话机器人入口：支持连续多轮对话与流式输出。"""
 
 import sys
 
@@ -6,7 +6,7 @@ from openai import OpenAIError
 from pydantic import ValidationError
 
 from config import Settings, get_settings
-from llm import chat_reply, create_client
+from llm import create_client, stream_reply
 
 EXIT_COMMANDS = {"exit", "quit", "/exit", "/quit"}
 
@@ -52,15 +52,19 @@ def run_chat() -> None:
             break
 
         messages.append({"role": "user", "content": text})
+        print("AI：", end="", flush=True)
+        answer = []
         try:
-            answer = chat_reply(client, messages, settings)
+            for piece in stream_reply(client, messages, settings):
+                answer.append(piece)
+                print(piece, end="", flush=True)
         except OpenAIError as exc:
             messages.pop()
-            print(f"[请求失败] {exc}")
+            print(f"\n[请求失败] {exc}")
             continue
 
-        print(f"AI：{answer}")
-        messages.append({"role": "assistant", "content": answer})
+        print()  # 回复结束只补一个换行，回到下一轮输入
+        messages.append({"role": "assistant", "content": "".join(answer)})
         messages = trim_history(messages, settings.max_history_messages)
 
 
