@@ -139,7 +139,7 @@
   .chat-head {
     display: flex; align-items: center; gap: 10px;
     padding: 15px 28px; border-bottom: 1px solid var(--line-soft); flex-shrink: 0;
-    background: rgba(253, 250, 243, .72); backdrop-filter: blur(6px);
+    background: #faf6ee;
   }
   .chat-head h1 {
     margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 1.5px;
@@ -162,7 +162,7 @@
     content: ""; position: absolute; right: 4px; top: -18px; width: 148px; height: 148px;
     border-radius: 50%;
     background: radial-gradient(circle at 42% 38%, rgba(35, 35, 35, .10), rgba(35, 35, 35, .035) 46%, transparent 68%);
-    filter: blur(1px); pointer-events: none;
+    pointer-events: none;
   }
   .welcome .hi { display: flex; align-items: center; gap: 13px; position: relative; }
   .seal-big {
@@ -643,13 +643,26 @@ async function send(textOverride) {
     }
     const reader = res.body.getReader();
     const decoder = new TextDecoder("utf-8");
+    let paintPending = false;
+    let finished = false;
+    const paint = () => {
+      if (finished) return;
+      if (paintPending) return;
+      paintPending = true;
+      requestAnimationFrame(() => {
+        paintPending = false;
+        if (finished) return;
+        node.body.innerHTML = renderRich(answer) + '<span class="cursor"></span>';
+        scrollToBottom();
+      });
+    };
     while (true) {
       const { done, value } = reader.read();
       if (done) break;
       answer += decoder.decode(value, { stream: true });
-      node.body.innerHTML = renderRich(answer) + '<span class="cursor"></span>';
-      scrollToBottom();
+      paint();
     }
+    finished = true;
     node.body.innerHTML = answer ? renderRich(answer) : '<span style="color:#8a8378">（模型没有返回内容）</span>';
   } catch (err) {
     if (err.name === "AbortError") {
