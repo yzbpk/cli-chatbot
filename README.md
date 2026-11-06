@@ -1,6 +1,6 @@
-# CLI 对话机器人
+# 学习助手：CLI 机器人与 FastAPI 服务
 
-用 Python 编写的命令行聊天机器人，支持连续多轮对话与流式输出。
+用 Python 编写的大模型对话程序：既可以在命令行里聊天，也可以作为 FastAPI 服务提供 HTTP 接口，支持多轮会话管理与后续的流式输出。
 
 配置统一由 `config.py` + `pydantic-settings` 管理，所有可变参数均可通过 `.env` 覆盖，代码中不硬编码任何密钥。
 
@@ -9,7 +9,10 @@
 ```
 cli-chatbot/
 ├── config.py            # 配置模型与 get_settings()
-├── llm.py               # 大模型调用封装
+├── llm.py               # 大模型调用封装（普通请求与流式请求）
+├── sessions.py          # 会话存储（内存实现，读写集中在此模块）
+├── schemas.py           # 请求 / 响应模型
+├── app.py               # FastAPI 服务入口
 ├── chat.py              # 命令行入口
 ├── tests/               # pytest 单元测试（离线运行）
 ├── .env.example         # 环境变量示例
@@ -54,6 +57,41 @@ AI：...
 ```
 
 回复边生成边打印（`stream=True`），结束后只补一个换行，不会出现空行堆积。
+
+## HTTP 服务（FastAPI）
+
+启动服务：
+
+```bash
+py -m uvicorn app:app --host 127.0.0.1 --port 8000
+```
+
+启动后打开 http://127.0.0.1:8000/docs 可以看到自动生成的交互式接口文档。
+
+### 普通对话 `POST /chat`
+
+```bash
+curl -X POST http://127.0.0.1:8000/chat ^
+  -H "Content-Type: application/json" ^
+  -d "{\"session_id\":\"u1\",\"message\":\"你好\"}"
+```
+
+```json
+{"session_id":"u1","reply":"模型的回复"}
+```
+
+`session_id` 由调用方提供；第一次使用该 ID 时创建会话，之后同一 ID 的请求会自动带上历史。
+不同 `session_id` 的会话互不影响。空消息返回 `400`。
+
+### 会话管理
+
+| 接口 | 作用 |
+| --- | --- |
+| `GET /sessions` | 查看已有会话 ID 列表，返回 `{"sessions":["u1"]}` |
+| `GET /sessions/{session_id}/messages` | 按对话顺序返回消息记录 `{"session_id":"u1","messages":[{"role":"user","content":"你好"}]}` |
+| `DELETE /sessions/{session_id}` | 清空该会话，成功返回 `204` |
+
+会话不存在时 `GET` / `DELETE` 返回 `404`。目前会话保存在内存中，读写集中在 `sessions.py`，后续可替换为数据库实现而不影响接口层。
 
 ## 单元测试
 
