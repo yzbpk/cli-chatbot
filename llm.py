@@ -20,14 +20,26 @@ def create_client(settings: Settings) -> OpenAI:
     )
 
 
-def build_request_params(messages: list[dict[str, str]], settings: Settings) -> dict[str, Any]:
+def build_request_params(
+    messages: list[dict[str, str]], settings: Settings, stream: bool = True
+) -> dict[str, Any]:
     """构造 chat.completions 请求参数，模型名、温度与是否流式全部来自约定。"""
     return {
         "model": settings.model,
         "temperature": settings.temperature,
         "messages": messages,
-        "stream": True,
+        "stream": stream,
     }
+
+
+def chat_reply(
+    client: OpenAI, messages: list[dict[str, str]], settings: Settings
+) -> str:
+    """发起非流式请求，一次性取回完整回复。"""
+    response = client.chat.completions.create(
+        **build_request_params(messages, settings, stream=False)
+    )
+    return response.choices[0].message.content or ""
 
 
 def stream_reply(
