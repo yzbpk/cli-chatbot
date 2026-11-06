@@ -93,10 +93,38 @@ curl -X POST http://127.0.0.1:8000/chat ^
 
 会话不存在时 `GET` / `DELETE` 返回 `404`。目前会话保存在内存中，读写集中在 `sessions.py`，后续可替换为数据库实现而不影响接口层。
 
+### 流式对话 `POST /chat/stream`
+
+请求体与 `/chat` 相同，响应为逐块返回的纯文本，调用模型时使用 `stream=True`：
+
+```bash
+curl -N -X POST http://127.0.0.1:8000/chat/stream ^
+  -H "Content-Type: application/json" ^
+  -d "{\"session_id\":\"u1\",\"message\":\"用一句话介绍 Python\"}"
+```
+
+返回内容按生成顺序到达（`Content-Type: text/plain; charset=utf-8`）。流式输出结束后，完整的用户消息与助手回复会在同一会话里留存，之后用 `GET /sessions/u1/messages` 可以看到。
+
+### 学习功能：单词讲解 `POST /study/word`
+
+```bash
+curl -X POST http://127.0.0.1:8000/study/word ^
+  -H "Content-Type: application/json" ^
+  -d "{\"word\":\"apple\"}"
+```
+
+```json
+{
+  "word": "apple",
+  "explanation": "n. 苹果；例句：She ate an apple after lunch.（她午饭后吃了一个苹果。）"
+}
+```
+
+接口会把单词交给模型，按「词性 + 中文释义 + 英文例句（含中文翻译）」的格式作答，适合前端做单词卡片或学习面板。
+
 ## 单元测试
 
-测试完全离线：不联网、不需要真实 API Key，通过 `monkeypatch.setenv` 造环境、
-`get_settings()`（带 `lru_cache`）取配置并在用例间 `cache_clear()`。
+测试使用 `pytest` + FastAPI `TestClient`，通过 `app.dependency_overrides` 注入假模型客户端，覆盖全部 HTTP 接口。
 
 ```bash
 py -m pip install -r requirements-dev.txt
@@ -108,3 +136,6 @@ py -m ruff check .
 | --- | --- |
 | `tests/test_config.py` | 默认值解析；`CHATBOT_TEMPERATURE=5` 抛 `ValidationError`；`SecretStr` 打印不出现明文 |
 | `tests/test_llm.py` | 假客户端断言传给模型的 `model`、`temperature`、`messages` 结构与 `stream=True`；增量文本拼接 |
+| `tests/test_api_chat.py` | 同一会话连续对话；不同会话历史互不混用；单词讲解可调用；空消息返回 400 |
+| `tests/test_api_sessions.py` | 会话列表与消息记录；清空后不再返回原记录；不存在的会话返回 404 |
+| `tests/test_api_stream.py` | 模型收到 `stream=True`；流式内容逐块返回；完整回复写入历史 |
