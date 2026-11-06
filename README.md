@@ -14,6 +14,7 @@ cli-chatbot/
 ├── schemas.py           # 请求 / 响应模型
 ├── app.py               # FastAPI 服务入口
 ├── chat.py              # 命令行入口
+├── static/index.html    # 网页版聊天界面
 ├── tests/               # pytest 单元测试（离线运行）
 ├── .env.example         # 环境变量示例
 ├── requirements.txt     # 运行依赖
@@ -66,7 +67,12 @@ AI：...
 py -m uvicorn app:app --host 127.0.0.1 --port 8000
 ```
 
-启动后打开 http://127.0.0.1:8000/docs 可以看到自动生成的交互式接口文档。
+启动后：
+
+- 打开 http://127.0.0.1:8000 是网页版聊天界面：左侧会话列表、流式输出、Enter 发送、可新建/切换/删除会话
+- 打开 http://127.0.0.1:8000/docs 是自动生成的交互式接口文档
+
+网页界面只是前端外壳，对话、历史、流式全部调用下面同一套 HTTP 接口。
 
 ### 普通对话 `POST /chat`
 
