@@ -53,3 +53,18 @@ def stream_reply(
         content = chunk.choices[0].delta.content
         if content:
             yield content
+
+
+WORD_EXPLAIN_PROMPT = (
+    "你是一位英语老师。请用中文讲解用户给出的英语单词："
+    "先给出词性与中文释义，再用该单词造一个英文例句并附中文翻译。回答控制在 5 行以内。"
+)
+
+
+def word_explain_messages(word: str) -> list[dict[str, str]]:
+    """构造「单词讲解」学习功能的请求消息。"""
+    return [
+        {"role": "system", "content": WORD_EXPLAIN_PROMPT},
+        {"role": "user", "content": f"请讲解这个单词：{word}"},
+    ]
+
