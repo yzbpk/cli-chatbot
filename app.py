@@ -1,14 +1,23 @@
-"""FastAPI 服务入口：普通对话接口与会话管理。"""
+"""FastAPI 服务入口：普通对话、流式对话、会话管理与学习功能。"""
 
+from collections.abc import Iterator
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from openai import OpenAI, OpenAIError
 from pydantic import ValidationError
 
 from config import Settings, get_settings
-from llm import chat_reply, create_client
-from schemas import ChatRequest, ChatResponse, SessionList, SessionMessages
+from llm import chat_reply, create_client, stream_reply, word_explain_messages
+from schemas import (
+    ChatRequest,
+    ChatResponse,
+    SessionList,
+    SessionMessages,
+    StudyWordRequest,
+    StudyWordResponse,
+)
 from sessions import store
 
 app = FastAPI(title="学习助手对话服务", version="0.1.0")
@@ -63,6 +72,56 @@ def chat(
     store.append(payload.session_id, "assistant", reply)
     store.trim(payload.session_id, settings.max_history_messages)
     return ChatResponse(session_id=payload.session_id, reply=reply)
+
+
+@app.post("/chat/stream")
+def chat_stream(
+    payload: ChatRequest,
+    settings: SettingsDep,
+    client: ClientDep,
+) -> StreamingResponse:
+    """流式对话接口：边生成边返回，结束后把完整回复写入会话历史。"""
+    text = payload.message.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="message 不能为空")
+
+    history = store.get_messages(payload.session_id)
+    messages = build_messages(settings, history, text)
+
+    def generate() -> Iterator[str]:
+        answer: list[str] = []
+        try:
+            for piece in stream_reply(client, messages, settings):
+                answer.append(piece)
+                yield piece
+        except OpenAIError as exc:  # 已开始输出，无法再改状态码，直接把错误写进流
+            yield f"\n[请求失败] {exc}"
+            return
+
+        store.append(payload.session_id, "user", text)
+        store.append(payload.session_id, "assistant", "".join(answer))
+        store.trim(payload.session_id, settings.max_history_messages)
+
+    return StreamingResponse(generate(), media_type="text/plain; charset=utf-8")
+
+
+@app.post("/study/word", response_model=StudyWordResponse)
+def study_word(
+    payload: StudyWordRequest,
+    settings: SettingsDep,
+    client: ClientDep,
+) -> StudyWordResponse:
+    """学习功能：讲解指定英文单词并给出例句。"""
+    word = payload.word.strip()
+    if not word:
+        raise HTTPException(status_code=400, detail="word 不能为空")
+
+    try:
+        explanation = chat_reply(client, word_explain_messages(word), settings)
+    except OpenAIError as exc:
+        raise HTTPException(status_code=502, detail=f"模型调用失败：{exc}") from exc
+
+    return StudyWordResponse(word=word, explanation=explanation)
 
 
 @app.get("/sessions", response_model=SessionList)
