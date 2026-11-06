@@ -1,10 +1,12 @@
 """FastAPI 服务入口：普通对话、流式对话、会话管理与学习功能。"""
 
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from openai import OpenAI, OpenAIError
 from pydantic import ValidationError
 
@@ -20,9 +22,18 @@ from schemas import (
 )
 from sessions import store
 
+BASE_DIR = Path(__file__).resolve().parent
+
 app = FastAPI(title="学习助手对话服务", version="0.1.0")
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
+
+
+@app.get("/", include_in_schema=False)
+def index() -> FileResponse:
+    """网页版聊天界面，前端调用与命令行相同的 /chat/stream 接口。"""
+    return FileResponse(BASE_DIR / "static" / "index.html")
 
 
 def get_client(settings: SettingsDep) -> OpenAI:
