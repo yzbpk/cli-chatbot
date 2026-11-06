@@ -24,7 +24,7 @@ from sessions import store
 
 BASE_DIR = Path(__file__).resolve().parent
 
-app = FastAPI(title="学习助手对话服务", version="0.1.0")
+app = FastAPI(title="智能式AI对话机器人", version="0.1.0")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
