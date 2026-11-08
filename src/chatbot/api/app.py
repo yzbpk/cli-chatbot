@@ -38,10 +38,20 @@ def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@lru_cache(maxsize=4)
+def _client_for(base_url: str, api_key: str) -> OpenAI:
+    """同一个模型服务复用同一个客户端，避免每轮对话都重新建立连接。"""
+    return create_client(base_url, api_key)
+
+
 def get_client(settings: SettingsDep) -> OpenAI:
-    """按配置创建模型客户端，测试中通过 dependency_overrides 替换为假客户端。"""
+    """按配置创建模型客户端，测试中通过 dependency_overrides 替换为假客户端。
+
+    客户端按（base_url, api_key）缓存：复用底层连接池，避免每条消息都重新 TLS 握手，
+    这是回复变慢的主要开销之一。
+    """
     try:
-        return create_client(settings)
+        return _client_for(settings.base_url, settings.api_key.get_secret_value())
     except ValidationError as exc:  # 缺少 CHATBOT_API_KEY 等必填配置
         raise HTTPException(
             status_code=503, detail="服务未配置模型密钥，请参考 .env.example 设置 CHATBOT_API_KEY。"
@@ -119,13 +129,24 @@ def chat_stream(
 
     def generate() -> Iterator[str]:
         answer: list[str] = []
+        buffer: list[str] = []
+        buffered = 0
         try:
             for piece in stream_reply(client, messages, settings):
                 answer.append(piece)
-                yield piece
+                buffer.append(piece)
+                buffered += len(piece)
+                # 攒够一批再下发：减少网络写次数，也减少浏览器重绘次数
+                if buffered >= 12 or "\n" in piece:
+                    yield "".join(buffer)
+                    buffer.clear()
+                    buffered = 0
         except OpenAIError as exc:  # 已开始输出，无法再改状态码，直接把错误写进流
             yield f"\n[请求失败] {exc}"
             return
+
+        if buffer:
+            yield "".join(buffer)
 
         # 流式输出结束后一次性落库，保证历史与页面显示一致
         store.append(payload.session_id, "user", text)

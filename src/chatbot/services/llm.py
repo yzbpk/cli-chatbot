@@ -12,12 +12,12 @@ from openai import OpenAI
 from chatbot.core.config import Settings
 
 
-def create_client(settings: Settings) -> OpenAI:
-    """按配置创建 OpenAI 兼容客户端（DeepSeek、ModelScope 等同源接口均可直接使用）。"""
-    return OpenAI(
-        api_key=settings.api_key.get_secret_value(),
-        base_url=settings.base_url,
-    )
+def create_client(base_url: str, api_key: str) -> OpenAI:
+    """创建 OpenAI 兼容客户端（DeepSeek、ModelScope 等同源接口均可直接使用）。
+
+    由调用方负责缓存同一个客户端，从而复用连接池；超时设置避免服务端卡住时无限等待。
+    """
+    return OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
 
 
 def build_request_params(
