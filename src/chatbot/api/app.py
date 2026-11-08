@@ -137,7 +137,7 @@ def chat_stream(
                 buffer.append(piece)
                 buffered += len(piece)
                 # 攒够一批再下发：减少网络写次数，也减少浏览器重绘次数
-                if buffered >= 12 or "\n" in piece:
+                if buffered >= 20 or "\n" in piece:
                     yield "".join(buffer)
                     buffer.clear()
                     buffered = 0
