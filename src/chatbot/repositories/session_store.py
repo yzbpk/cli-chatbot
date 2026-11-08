@@ -1,7 +1,7 @@
-"""会话存储模块。
+"""会话存储（内存实现）。
 
-本次作业要求会话先保存在内存中，且所有读写集中在一个模块，
-以后换成数据库时只需要替换这里的实现，接口层不用改动。
+第四次作业的会话持久化会在后续 PR 中替换为 SQLite；
+在此之前保持“所有读写集中在数据访问层”的约定，接口层不感知存储细节。
 """
 
 from threading import Lock
@@ -19,9 +19,7 @@ class InMemorySessionStore:
     def append(self, session_id: str, role: str, content: str) -> None:
         """追加一条消息；会话不存在时自动创建。"""
         with self._lock:
-            self._sessions.setdefault(session_id, []).append(
-                {"role": role, "content": content}
-            )
+            self._sessions.setdefault(session_id, []).append({"role": role, "content": content})
 
     def get_messages(self, session_id: str) -> list[Message]:
         """返回会话消息的副本，避免调用方改动存储内部状态。"""
