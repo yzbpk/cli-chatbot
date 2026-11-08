@@ -27,8 +27,7 @@
     background-color: var(--paper);
     background-image:
       radial-gradient(circle at 10% 6%, rgba(120, 110, 92, .07), transparent 42%),
-      radial-gradient(circle at 92% 90%, rgba(60, 55, 45, .06), transparent 40%),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+      radial-gradient(circle at 92% 90%, rgba(60, 55, 45, .06), transparent 40%);
     -webkit-font-smoothing: antialiased;
   }
   .app { display: flex; height: 100vh; overflow: hidden; position: relative; }
@@ -205,6 +204,7 @@
   .msg .who { font-size: 12px; color: var(--ink-3); font-family: "KaiTi", serif; letter-spacing: 1px; }
   .msg .text {
     font-size: 14.5px; line-height: 2.02; color: #2e2b26; white-space: pre-wrap; word-break: break-word;
+    contain: layout paint style;
   }
   .msg.user { display: flex; justify-content: flex-end; }
   .msg.user .bubble {
@@ -633,6 +633,7 @@ async function send(textOverride) {
   let liveText = null;
   let finished = false;
   let paintPending = false;
+  let lastAppendAt = 0;
   let lastScrollAt = 0;
   const paint = () => {
     if (finished || paintPending) return;
@@ -640,8 +641,9 @@ async function send(textOverride) {
     requestAnimationFrame(() => {
       paintPending = false;
       if (finished) return;
-      if (pending) {
-        // 流式期间只往文本节点追加字符，不重新解析 Markdown（避免 O(n²) 重绘）
+      const now = Date.now();
+      // 每 100ms 或攒够 40 字才追加一次，避免每秒 60 次排版
+      if (pending && (now - lastAppendAt >= 100 || pending.length >= 40)) {
         if (!liveText) {
           node.body.textContent = "";
           liveText = document.createTextNode("");
@@ -652,9 +654,9 @@ async function send(textOverride) {
         }
         liveText.appendData(pending);
         pending = "";
+        lastAppendAt = now;
       }
-      const now = Date.now();
-      if (now - lastScrollAt > 120) {
+      if (now - lastScrollAt > 150) {
         lastScrollAt = now;
         scrollToBottom();
       }
@@ -676,7 +678,7 @@ async function send(textOverride) {
     const reader = res.body.getReader();
     const decoder = new TextDecoder("utf-8");
     while (true) {
-      const { done, value } = reader.read();
+      const { done, value } = await reader.read();
       if (done) break;
       const delta = decoder.decode(value, { stream: true });
       answer += delta;
