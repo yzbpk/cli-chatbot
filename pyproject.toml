@@ -1,10 +1,43 @@
-[tool.ruff]
-line-length = 100
-target-version = "py39"
+[project]
+name = "cli-chatbot"
+version = "0.4.0"
+description = "智能式AI对话机器人：命令行界面与 FastAPI 服务"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.29.0",
+    "openai>=1.0.0",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.2",
+]
 
-[tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP"]
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "httpx>=0.27",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+chatbot = "chatbot.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/chatbot"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = ["src"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

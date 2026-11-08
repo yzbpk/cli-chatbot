@@ -1,13 +1,13 @@
-"""测试公共夹具：假模型客户端、离线配置与已替换依赖的 TestClient。"""
+"""测试公共夹具：假模型客户端与已替换依赖的 TestClient。"""
 
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app import app, get_client
-from config import get_settings
-from sessions import store
+from chatbot.api.app import app, get_client
+from chatbot.core.config import get_settings
+from chatbot.repositories.session_store import store
 
 
 class FakeChatClient:
@@ -36,7 +36,7 @@ class FakeChatClient:
 
 
 @pytest.fixture(autouse=True)
-def offline_env(monkeypatch):
+def offline_env(monkeypatch, tmp_path):
     """为每个用例提供假密钥，避免读取真实 .env 或联网。"""
     monkeypatch.setenv("CHATBOT_API_KEY", "test-key")
     get_settings.cache_clear()
@@ -51,10 +51,10 @@ def fake_client() -> FakeChatClient:
 
 @pytest.fixture
 def api(fake_client: FakeChatClient):
-    """替换模型客户端依赖，并在用例前后清空内存会话。"""
-    store.clear_all()
+    """替换模型客户端依赖，并在用例前后清空内存会话，保证互不影响。"""
     app.dependency_overrides[get_client] = lambda: fake_client
+    store.clear_all()
     with TestClient(app) as client:
         yield client
-    app.dependency_overrides.clear()
     store.clear_all()
+    app.dependency_overrides.clear()

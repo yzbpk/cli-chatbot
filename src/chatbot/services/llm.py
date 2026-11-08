@@ -9,7 +9,7 @@ from typing import Any
 
 from openai import OpenAI
 
-from config import Settings
+from chatbot.core.config import Settings
 
 
 def create_client(settings: Settings) -> OpenAI:

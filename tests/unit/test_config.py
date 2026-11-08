@@ -5,7 +5,7 @@ import os
 import pytest
 from pydantic import ValidationError
 
-from config import get_settings
+from chatbot.core.config import get_settings
 
 
 @pytest.fixture(autouse=True)

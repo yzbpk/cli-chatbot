@@ -1,12 +1,15 @@
-"""命令行对话机器人入口：支持连续多轮对话与流式输出。"""
+"""命令行对话机器人入口：支持连续多轮对话与流式输出。
+
+数据模型（如消息结构）统一放在 ``chatbot.models.schemas``，本文件只保留交互流程。
+"""
 
 import sys
 
 from openai import OpenAIError
 from pydantic import ValidationError
 
-from config import Settings, get_settings
-from llm import create_client, stream_reply
+from chatbot.core.config import Settings, get_settings
+from chatbot.services.llm import create_client, stream_reply
 
 EXIT_COMMANDS = {"exit", "quit", "/exit", "/quit"}
 
@@ -26,15 +29,16 @@ def load_settings() -> Settings:
         sys.exit(1)
 
 
-def trim_history(messages: list, limit: int) -> list:
+def trim_history(messages: list[dict[str, str]], limit: int) -> list[dict[str, str]]:
     """保留 system 消息与最近若干条对话，防止上下文无限增长。"""
     return [messages[0], *messages[1:][-(limit - 1) :]]
 
 
 def run_chat() -> None:
+    """在终端里循环读取输入，流式打印模型回复，输入 exit 退出。"""
     settings = load_settings()
     client = create_client(settings)
-    messages = [{"role": "system", "content": settings.system_prompt}]
+    messages: list[dict[str, str]] = [{"role": "system", "content": settings.system_prompt}]
 
     print(f"命令行对话机器人（模型 {settings.model}），输入 exit 退出。")
     while True:
@@ -53,7 +57,7 @@ def run_chat() -> None:
 
         messages.append({"role": "user", "content": text})
         print("AI：", end="", flush=True)
-        answer = []
+        answer: list[str] = []
         try:
             for piece in stream_reply(client, messages, settings):
                 answer.append(piece)
@@ -68,5 +72,10 @@ def run_chat() -> None:
         messages = trim_history(messages, settings.max_history_messages)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """命令行入口，对应 pyproject 中的 ``chatbot`` 命令。"""
     run_chat()
+
+
+if __name__ == "__main__":
+    main()

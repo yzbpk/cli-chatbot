@@ -10,9 +10,8 @@ from fastapi.staticfiles import StaticFiles
 from openai import OpenAI, OpenAIError
 from pydantic import ValidationError
 
-from config import Settings, get_settings
-from llm import chat_reply, create_client, stream_reply, word_explain_messages
-from schemas import (
+from chatbot.core.config import Settings, get_settings
+from chatbot.models.schemas import (
     ChatRequest,
     ChatResponse,
     SessionList,
@@ -20,12 +19,14 @@ from schemas import (
     StudyWordRequest,
     StudyWordResponse,
 )
-from sessions import store
+from chatbot.repositories.session_store import store
+from chatbot.services.llm import chat_reply, create_client, stream_reply, word_explain_messages
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
+STATIC_DIR = BASE_DIR / "static"
 
-app = FastAPI(title="智能式AI对话机器人", version="0.1.0")
-app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+app = FastAPI(title="智能式AI对话机器人", version="0.4.0")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 
@@ -33,7 +34,7 @@ SettingsDep = Annotated[Settings, Depends(get_settings)]
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
     """网页版聊天界面，前端调用与命令行相同的 /chat/stream 接口。"""
-    return FileResponse(BASE_DIR / "static" / "index.html")
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 def get_client(settings: SettingsDep) -> OpenAI:
@@ -137,7 +138,7 @@ def study_word(
 
 @app.get("/sessions", response_model=SessionList)
 def list_sessions() -> SessionList:
-    """查看内存中已有的会话 ID 列表。"""
+    """查看已有会话的 ID 列表。"""
     return SessionList(sessions=store.list_session_ids())
 
 

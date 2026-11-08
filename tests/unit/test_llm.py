@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from config import get_settings
-from llm import build_request_params, stream_reply
+from chatbot.core.config import get_settings
+from chatbot.services.llm import build_request_params, stream_reply
 
 
 class FakeCompletions:
