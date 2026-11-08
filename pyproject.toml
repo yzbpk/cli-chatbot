@@ -1,7 +1,7 @@
 [project]
 name = "cli-chatbot"
 version = "0.4.0"
-description = "智能式AI对话机器人：命令行界面与 FastAPI 服务"
+description = "智能式AI对话机器人：命令行界面、FastAPI 服务与 SQLite 会话持久化"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     max_history_messages: int = Field(
         default=20, ge=2, description="最多保留的历史消息条数（含 system 消息）"
     )
+    db_path: str = Field(
+        default="chat.db",
+        description="SQLite 数据库文件路径；测试可传 ':memory:' 或临时目录下的文件",
+    )
 
 
 @lru_cache(maxsize=1)
