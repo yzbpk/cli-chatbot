@@ -1,6 +1,7 @@
 """FastAPI 服务入口：普通对话、流式对话、会话管理与学习功能。"""
 
 from collections.abc import Iterator
+from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
 
@@ -19,7 +20,7 @@ from chatbot.models.schemas import (
     StudyWordRequest,
     StudyWordResponse,
 )
-from chatbot.repositories.session_store import store
+from chatbot.repositories.session_store import SessionStore
 from chatbot.services.llm import chat_reply, create_client, stream_reply, word_explain_messages
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -50,6 +51,20 @@ def get_client(settings: SettingsDep) -> OpenAI:
 ClientDep = Annotated[OpenAI, Depends(get_client)]
 
 
+@lru_cache(maxsize=8)
+def _store_for(db_path: str) -> SessionStore:
+    """同一数据库路径复用同一个 store，避免每次请求重复建表。"""
+    return SessionStore(db_path)
+
+
+def get_store(settings: SettingsDep) -> SessionStore:
+    """从配置解析数据库路径；测试通过 dependency_overrides 注入临时数据库。"""
+    return _store_for(settings.db_path)
+
+
+StoreDep = Annotated[SessionStore, Depends(get_store)]
+
+
 def build_messages(
     settings: Settings, history: list[dict[str, str]], user_text: str
 ) -> list[dict[str, str]]:
@@ -67,6 +82,7 @@ def chat(
     payload: ChatRequest,
     settings: SettingsDep,
     client: ClientDep,
+    store: StoreDep,
 ) -> ChatResponse:
     """普通对话接口：同一 session_id 自动延续历史，不同会话互不影响。"""
     text = payload.message.strip()
@@ -91,6 +107,7 @@ def chat_stream(
     payload: ChatRequest,
     settings: SettingsDep,
     client: ClientDep,
+    store: StoreDep,
 ) -> StreamingResponse:
     """流式对话接口：边生成边返回，结束后把完整回复写入会话历史。"""
     text = payload.message.strip()
@@ -110,6 +127,7 @@ def chat_stream(
             yield f"\n[请求失败] {exc}"
             return
 
+        # 流式输出结束后一次性落库，保证历史与页面显示一致
         store.append(payload.session_id, "user", text)
         store.append(payload.session_id, "assistant", "".join(answer))
         store.trim(payload.session_id, settings.max_history_messages)
@@ -137,13 +155,13 @@ def study_word(
 
 
 @app.get("/sessions", response_model=SessionList)
-def list_sessions() -> SessionList:
-    """查看已有会话的 ID 列表。"""
+def list_sessions(store: StoreDep) -> SessionList:
+    """查看数据库中已有的会话 ID 列表。"""
     return SessionList(sessions=store.list_session_ids())
 
 
 @app.get("/sessions/{session_id}/messages", response_model=SessionMessages)
-def get_session_messages(session_id: str) -> SessionMessages:
+def get_session_messages(session_id: str, store: StoreDep) -> SessionMessages:
     """按对话顺序返回指定会话的消息记录。"""
     if not store.exists(session_id):
         raise HTTPException(status_code=404, detail="会话不存在")
@@ -151,7 +169,7 @@ def get_session_messages(session_id: str) -> SessionMessages:
 
 
 @app.delete("/sessions/{session_id}", status_code=204)
-def delete_session(session_id: str) -> None:
+def delete_session(session_id: str, store: StoreDep) -> None:
     """清空指定会话；会话不存在时返回 404。"""
     if not store.clear(session_id):
         raise HTTPException(status_code=404, detail="会话不存在")

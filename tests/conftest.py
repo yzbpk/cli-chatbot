@@ -1,13 +1,13 @@
-"""测试公共夹具：假模型客户端与已替换依赖的 TestClient。"""
+"""测试公共夹具：假模型客户端、临时数据库与已替换依赖的 TestClient。"""
 
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
-from chatbot.api.app import app, get_client
+from chatbot.api.app import app, get_client, get_store
 from chatbot.core.config import get_settings
-from chatbot.repositories.session_store import store
+from chatbot.repositories.session_store import SessionStore
 
 
 class FakeChatClient:
@@ -37,8 +37,9 @@ class FakeChatClient:
 
 @pytest.fixture(autouse=True)
 def offline_env(monkeypatch, tmp_path):
-    """为每个用例提供假密钥，避免读取真实 .env 或联网。"""
+    """为每个用例提供假密钥和独立数据库，避免读取真实 .env 或联网。"""
     monkeypatch.setenv("CHATBOT_API_KEY", "test-key")
+    monkeypatch.setenv("CHATBOT_DB_PATH", str(tmp_path / "settings.db"))
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -50,11 +51,16 @@ def fake_client() -> FakeChatClient:
 
 
 @pytest.fixture
-def api(fake_client: FakeChatClient):
-    """替换模型客户端依赖，并在用例前后清空内存会话，保证互不影响。"""
+def store(tmp_path) -> SessionStore:
+    """每个用例一份全新的数据库，用例之间互不影响。"""
+    return SessionStore(tmp_path / "api.db")
+
+
+@pytest.fixture
+def api(fake_client: FakeChatClient, store: SessionStore):
+    """替换模型客户端与会话存储依赖，返回可直接发请求的 TestClient。"""
     app.dependency_overrides[get_client] = lambda: fake_client
-    store.clear_all()
+    app.dependency_overrides[get_store] = lambda: store
     with TestClient(app) as client:
         yield client
-    store.clear_all()
     app.dependency_overrides.clear()
