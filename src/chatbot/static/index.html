@@ -629,6 +629,38 @@ async function send(textOverride) {
   setStreamingUI(true);
 
   let answer = "";
+  let pending = "";
+  let liveText = null;
+  let finished = false;
+  let paintPending = false;
+  let lastScrollAt = 0;
+  const paint = () => {
+    if (finished || paintPending) return;
+    paintPending = true;
+    requestAnimationFrame(() => {
+      paintPending = false;
+      if (finished) return;
+      if (pending) {
+        // 流式期间只往文本节点追加字符，不重新解析 Markdown（避免 O(n²) 重绘）
+        if (!liveText) {
+          node.body.textContent = "";
+          liveText = document.createTextNode("");
+          node.body.appendChild(liveText);
+          const caret = document.createElement("span");
+          caret.className = "cursor";
+          node.body.appendChild(caret);
+        }
+        liveText.appendData(pending);
+        pending = "";
+      }
+      const now = Date.now();
+      if (now - lastScrollAt > 120) {
+        lastScrollAt = now;
+        scrollToBottom();
+      }
+    });
+  };
+
   try {
     const res = await fetch("/chat/stream", {
       method: "POST",
@@ -643,28 +675,18 @@ async function send(textOverride) {
     }
     const reader = res.body.getReader();
     const decoder = new TextDecoder("utf-8");
-    let paintPending = false;
-    let finished = false;
-    const paint = () => {
-      if (finished) return;
-      if (paintPending) return;
-      paintPending = true;
-      requestAnimationFrame(() => {
-        paintPending = false;
-        if (finished) return;
-        node.body.innerHTML = renderRich(answer) + '<span class="cursor"></span>';
-        scrollToBottom();
-      });
-    };
     while (true) {
       const { done, value } = reader.read();
       if (done) break;
-      answer += decoder.decode(value, { stream: true });
+      const delta = decoder.decode(value, { stream: true });
+      answer += delta;
+      pending += delta;
       paint();
     }
     finished = true;
     node.body.innerHTML = answer ? renderRich(answer) : '<span style="color:#8a8378">（模型没有返回内容）</span>';
   } catch (err) {
+    finished = true;
     if (err.name === "AbortError") {
       node.body.innerHTML = (answer ? renderRich(answer) + '<div style="color:#8a8378;font-size:12px;margin-top:6px">（已手动停止）</div>'
         : '<span style="color:#8a8378">已停止生成</span>');
