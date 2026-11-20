@@ -1,7 +1,9 @@
+<<<<<<< Updated upstream
+=======
 [project]
 name = "cli-chatbot"
 version = "0.4.0"
-description = "智能式AI对话机器人：命令行界面、FastAPI 服务与 SQLite 会话持久化"
+description = "智能式AI对话机器人：命令行界面、FastAPI 服务与 SQLAlchemy ORM 会话持久化"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -10,6 +12,7 @@ dependencies = [
     "openai>=1.0.0",
     "pydantic>=2.7",
     "pydantic-settings>=2.2",
+    "SQLAlchemy>=2.0",
 ]
 
 [dependency-groups]
@@ -34,10 +37,14 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q"
 
+>>>>>>> Stashed changes
 [tool.ruff]
 line-length = 100
-target-version = "py310"
-src = ["src", "tests"]
+target-version = "py39"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
