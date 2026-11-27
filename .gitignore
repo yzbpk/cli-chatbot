@@ -23,3 +23,6 @@ venv/
 # 构建产物
 dist/
 build/
+
+# Node.js
+node_modules/
