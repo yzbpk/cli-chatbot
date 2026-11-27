@@ -8,23 +8,17 @@
 
 ```
 cli-chatbot/
-├── pyproject.toml              # 项目元数据、依赖、pytest/ruff 配置（唯一配置入口）
-├── uv.lock                     # uv 锁文件，记录精确版本
-├── .env.example                # 环境变量示例（提交到仓库）
-├── README.md
-├── src/
-│   └── chatbot/
-│       ├── core/config.py          # Settings + get_settings()：pydantic-settings 配置类
-│       ├── models/schemas.py       # 7 个 Pydantic 请求/响应模型，每个字段带 description
-│       ├── services/llm.py         # 大模型调用（普通 + 流式）、单词讲解专用提示词
-│       ├── repositories/session_store.py   # SQLAlchemy 2.0 ORM 会话存储
-│       ├── api/app.py              # FastAPI 应用 + 路由 + 静态页面挂载
-│       ├── static/index.html       # 前端聊天界面
-│       └── cli.py                  # 命令行入口（uv run chatbot）
-└── tests/
-    ├── conftest.py                 # 共享 fixture：假模型客户端、临时数据库
-    ├── unit/                       # 单元测试：配置、模型调用、存储层
-    └── integration/                # 接口测试：chat / stream / sessions
+├── backend/                  # 后端（FastAPI + SQLAlchemy ORM）
+│   ├── src/chatbot/          # 后端源代码
+│   ├── tests/                # 后端测试
+│   ├── pyproject.toml        # 后端依赖与工具配置
+│   ├── uv.lock               # 后端依赖锁文件
+│   └── .env.example          # 后端环境变量示例
+├── frontend/                 # 前端（Vue 3 + Vite，空脚手架）
+│   ├── src/                  # 前端源代码
+│   ├── package.json          # 前端依赖
+│   └── vite.config.js        # Vite 配置
+└── README.md                 # 本文件
 ```
 
 ## 配置说明
@@ -48,13 +42,26 @@ copy .env.example .env   # Windows PowerShell
 
 ## 快速开始
 
+### 后端（必须在 `backend/` 目录下执行）
+
 ```bash
+cd backend
 uv sync                                          # 安装全部依赖，创建 .venv
 uv run chatbot                                   # 命令行对话
 uv run uvicorn chatbot.api.app:app --port 8000   # 起 HTTP 服务
 uv run pytest                                    # 运行测试
 uv run ruff check .                              # 代码检查
 ```
+
+### 前端（必须在 `frontend/` 目录下执行）
+
+```bash
+cd frontend
+npm install                                      # 安装依赖
+npm run dev                                      # 启动开发服务器
+```
+
+打开 http://localhost:5173 能看到 Vue 欢迎页。**本次前端只是脚手架，尚未接入后端 API。**
 
 命令行对话示例：
 
